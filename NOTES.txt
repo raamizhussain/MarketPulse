@@ -1,0 +1,36 @@
+- creating the virtual environment
+
+- building an Asynchronous Real-Time Stream Ingestion Engine
+-- flashes real-time news and stock prices 
+
+- Building a partitioned database (if standard,single db table - it will slow down and crash eventually)
+-- Declarative Range Partitioning - chops data into smaller tables
+-- Use BRIN (Block Range Indexing) over standard Indexing - records min. and max. timestamp of data 
+
+Asyncpg - py library used to connect to and manage PostgreSQL databases
+
+From using random data -> using real-time data using yfinance library
+
+- changed from yfinance to Alpha Vantage Free API key (25 requests per day free)
+- the real-time data is stored in the tables
+
+Artificial Intelligence layer - Hidden Markov Model (HMM)
+- read the tables, analyze the structural speed and swings of the prices, and output a hidden state
+- classify market environment into 2 clear states:
+--> State 0 : low volatility, low risk, quiet, stable growth
+--> State 1: high turbulent, wild price swings, sudden drops, high risk
+
+Disadvatage of Alpha Vantage - only 25 requests per day
+
+Alternate option - shifting to Alpaca which gives 200 requests per minute unlike Alpha 
+
+Hybrid: Historical + Live Ingestion Engine 
+-> Stage 1: Historical Backfill of past 30 days
+-> Stage 2: Live stream ingestion 
+
+- Free tier -> IEX Data Feed instead of SIP Data Feed
+
+
+
+
+

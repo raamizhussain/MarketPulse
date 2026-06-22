@@ -1,0 +1,7 @@
+pydantic==2.7.1
+asyncpg==0.29.0
+yfinance==0.2.40
+pandas==2.2.2
+scikit-learn==1.4.2
+hmmlearn==0.3.2
+alpaca-py==0.34.0
