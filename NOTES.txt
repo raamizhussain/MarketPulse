@@ -30,6 +30,32 @@ Hybrid: Historical + Live Ingestion Engine
 
 - Free tier -> IEX Data Feed instead of SIP Data Feed
 
+- Pulled nearly 400,000 highly precise minute-bars successfully of 4 different stock-symbols into the PostgreSQL warehouse
+
+regime_detector.py
+- Hidden Markov Model (HMM) : specialized sequential ML model, using time-series dataset, and determines the unobservable, Regime of the market 
+- It analyzes Log Returns and Realized Velocity from data to classify market regimes into Stable (State 0) or High-Volatility (State 1) environments
+
+Bug: 
+- State 0 avg volatility was successful but State 1 returned "nan"
+
+Fix: To fix the convergence trap, train the HMM solely on raw Log Returns to eliminate volatility lag, then enforce an explicit sort matrix to drop remaining NaN groups
+
+- It failed to converge bcuz a lack of data variety caused the optimization algorithm to stall and collapse all variance into State 0
+- Expectation-Maximization algorithm
+
+- To force convergence and prevent state collapse, we will use Explicit Matrix Initialization by pre-calculating a baseline threshold to feed hard-coded starting parameters directly to the HIMM algorithm
+
+BUG: The model is not converging even after many changes in the code
+FIX:
+- Transitioning from 1D log returns to a 2D feature space of log returns and realized volatility provides the geometric separation necessary to resolve 1D HMM variance collapse.
+- Incorporating a 20-period rolling standard deviation into the model allows for distinct clusetering of market quiet periods and volatility, with a recommended tolerance adjustment of 0.1 for stability
+
+- Fixed the collapsed Expectation-Maximization loop, caught failure, dynamically routed the data to Fallback path 1: Raw KMeans Geometry Lables
+- Regime detector is 100% functional
+
+
+
 
 
 
