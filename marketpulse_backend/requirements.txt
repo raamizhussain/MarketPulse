@@ -7,3 +7,4 @@ hmmlearn==0.3.2
 alpaca-py==0.34.0
 streamlit==1.35.0
 plotly==5.22.0
+nltk==3.8.1
