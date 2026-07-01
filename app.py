@@ -48,13 +48,13 @@ try:
         
         if tf.button("Trigger LangGraph Committee Debate"):
             with tf.spinner("Orchestrating adversarial agent node vectors via Groq..."):
-                import asyncio
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
+                from marketpulse_backend.sentiment_analyzer import fetch_ticker_news_sentiment_sync
+                
                 try:
-                    news_df = loop.run_until_complete(fetch_ticker_news_sentiment(selected_sym, days_back=3))
-                finally:
-                    loop.close()
+                    news_df = fetch_ticker_news_sentiment_sync(selected_sym, days_back=3)
+                except Exception as ex:
+                    tf.error(f"Network data retrieval failed: {ex}")
+                    news_df = pd.DataFrame()
                     
                 avg_sent = news_df['sentiment'].mean() if not news_df.empty else 0.0
                 

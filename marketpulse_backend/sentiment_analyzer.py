@@ -70,6 +70,40 @@ async def fetch_ticker_news_sentiment(symbol: str, days_back: int = 7) -> pd.Dat
         print(f"❌ Sentiment extraction failed for {symbol}: {e}")
         return pd.DataFrame(columns=['created_at', 'headline', 'sentiment', 'source'])
 
+def fetch_ticker_news_sentiment_sync(symbol: str, days_back: int = 7) -> pd.DataFrame:
+    print(f"📰 Connecting to Alpaca News Wire for {symbol} (Sync Groq Sentiment)...")
+    client = NewsClient(ALPACA_API_KEY, ALPACA_SECRET_KEY)
+    end_time = datetime.now(timezone.utc)
+    start_time = end_time - timedelta(days=days_back)
+    request_params = NewsRequest(
+        symbols=symbol,
+        start=start_time,
+        end=end_time,
+        limit=50
+    )
+    try:
+        news_payload = client.get_news(request_params)
+        articles_raw = news_payload.data.get("news", [])
+        if not articles_raw:
+            return pd.DataFrame(columns=['created_at', 'headline', 'sentiment', 'source'])
+        processed_articles = []
+        for article in articles_raw:
+            headline = article.headline or ""
+            timestamp = article.created_at
+            if timestamp and timestamp.tzinfo is not None:
+                timestamp = timestamp.replace(tzinfo=None)
+            sentiment_score = analyze_headline_sentiment(headline)
+            processed_articles.append({
+                'created_at': timestamp,
+                'headline': headline,
+                'sentiment': sentiment_score,
+                'source': article.source
+            })
+        df = pd.DataFrame(processed_articles)
+        return df.sort_values('created_at', ascending=False).reset_index(drop=True)
+    except Exception as e:
+        print(f"❌ Sentiment extraction failed for {symbol}: {e}")
+        return pd.DataFrame(columns=['created_at', 'headline', 'sentiment', 'source'])
 if __name__ == "__main__":
     async def test():
         df = await fetch_ticker_news_sentiment("NVDA", days_back=3)
