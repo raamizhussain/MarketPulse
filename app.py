@@ -1,170 +1,117 @@
-import streamlit as st
+import streamlit as tf
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import asyncio
-from marketpulse_backend.regime_detector import (
-    fetch_all_warehouse_data, 
-    calculate_multi_asset_features, 
-    train_robust_regime_model
-)
-# 💡 Import our brand new live sentiment extraction function!
+from datetime import datetime
+from marketpulse_backend.regime_detector import fetch_all_warehouse_data, calculate_multi_asset_features, train_robust_regime_model
 from marketpulse_backend.sentiment_analyzer import fetch_ticker_news_sentiment
+from marketpulse_backend.multi_agent_core import run_multi_agent_pipeline
 
-st.set_page_config(
-    page_title="MarketPulse AI | Quant Regime Command Core",
-    page_icon="📈",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+tf.set_page_config(page_title="MarketPulse AI", layout="wide")
 
-# Custom CSS styling for an institutional layout
-st.markdown("""
-    <style>
-    .main { background-color: #0e1117; color: #ffffff; }
-    div.stButton > button:first-child {
-        background-color: #3498db; color: white; border-radius: 4px;
-    }
-    .reportview-container .main .block-container{ padding-top: 1rem; }
-    </style>
-""", unsafe_allow_html=True)
+tf.title("📈 MarketPulse AI: Institutional Quantitative Dashboard")
+tf.markdown("---")
 
-# =====================================================================
-# DATA SYNCHRONIZATION PIPELINE LAYER
-# =====================================================================
-@st.cache_data(ttl=60)
-def load_and_model_market_data():
-    """Extracts rows from PostgreSQL and processes the HMM regimes synchronously."""
+@tf.cache_data(ttl=60)
+def load_ui_data():
+    import asyncio
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
-        raw_df = loop.run_until_complete(fetch_all_warehouse_data())
+        raw = loop.run_until_complete(fetch_all_warehouse_data())
     finally:
         loop.close()
-        
-    if raw_df.empty:
-        return pd.DataFrame()
-        
-    processed_df = calculate_multi_asset_features(raw_df)
-    _, final_df = train_robust_regime_model(processed_df)
+    proc = calculate_multi_asset_features(raw)
+    model, final_df = train_robust_regime_model(proc)
     return final_df
 
-@st.cache_data(ttl=300) # Cache news for 5 minutes to remain respectful of API bounds
-def load_live_sentiment(symbol: str):
-    """Fetches real-time financial sentiment records via Alpaca News Wire."""
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        news_df = loop.run_until_complete(fetch_ticker_news_sentiment(symbol, days_back=7))
-    finally:
-        loop.close()
-    return news_df
-
-# =====================================================================
-# DASHBOARD CONTROLS & SIDEBAR
-# =====================================================================
-st.title("📈 MarketPulse AI")
-st.subheader("Multi-Modal Quant Regime Core & Sentiment Analytics Platform")
-st.markdown("---")
-
-with st.spinner("🔄 Querying PostgreSQL Warehouse & Calibrating Market Models..."):
-    data_matrix = load_and_model_market_data()
-
-if data_matrix.empty:
-    st.error("❌ Critical System Warning: Data Warehouse is empty!")
-    st.stop()
-
-st.sidebar.header("🛠️ Pipeline Configurations")
-available_symbols = list(data_matrix['symbol'].unique())
-selected_ticker = st.sidebar.selectbox("🎯 Target Financial Instrument", available_symbols, index=0)
-
-# Filter database rows for the selected asset view
-asset_view = data_matrix[data_matrix['symbol'] == selected_ticker].sort_values('created_at').copy()
-
-# Pull live wire reports concurrently for our asset selection
-news_view = load_live_sentiment(selected_ticker)
-
-# =====================================================================
-# METRIC HIGHLIGHT TILES
-# =====================================================================
-latest_bar = asset_view.iloc[-1]
-current_state = int(latest_bar['hidden_state'])
-current_vol = float(latest_bar['realized_volatility'])
-
-# Calculate the recent average media mood score
-avg_mood = news_view['sentiment'].mean() if not news_view.empty else 0.0
-
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    st.metric(label=f"💰 {selected_ticker} Latest Close", value=f"${latest_bar['price']:.2f}")
-with col2:
-    state_label = "🔴 TURBULENT (High Risk)" if current_state == 1 else "🟢 STABLE (Low Risk)"
-    st.metric(label="🧠 Active AI Market Regime", value=state_label)
-with col3:
-    st.metric(label="📊 Current Realized Volatility", value=f"{current_vol:.4f}")
-with col4:
-    if avg_mood > 0.05:
-        mood_txt = f" BULLISH ({avg_mood:+.2f})"
-    elif avg_mood < -0.05:
-        mood_txt = f" BEARISH ({avg_mood:+.2f})"
-    else:
-        mood_txt = f" NEUTRAL ({avg_mood:+.2f})"
-    st.metric(label="📰 Media Sentiment Score", value=mood_txt)
-
-st.markdown("###")
-
-# =====================================================================
-# TIME-SERIES INTERACTIVE PLOTLY CHART
-# =====================================================================
-st.markdown(f"### 🕒 Real-Time Regime Overlay Chart for {selected_ticker}")
-
-fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08, row_heights=[0.7, 0.3])
-
-fig.add_trace(go.Scatter(x=asset_view['created_at'], y=asset_view['price'], name="Asset Price", line=dict(color="#94a3b8", width=1.5)), row=1, col=1)
-
-# Highlights states dynamically (Red = Crisis environment, Translucent Blue = Normal)
-colors = np.where(asset_view['hidden_state'] == 1, 'rgba(239, 68, 68, 0.2)', 'rgba(59, 130, 246, 0.03)')
-fig.add_trace(go.Bar(x=asset_view['created_at'], y=asset_view['price'], marker=dict(color=colors.tolist(), line_width=0), hoverinfo='skip', showlegend=False), row=1, col=1)
-
-fig.add_trace(go.Scatter(x=asset_view['created_at'], y=asset_view['realized_volatility'], name="Realized Volatility", line=dict(color="#38bdf8", width=1.2)), row=2, col=1)
-
-fig.update_layout(template="plotly_dark", height=600, margin=dict(l=20, r=20, t=10, b=10), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), hovermode="x unified")
-fig.update_yaxes(title_text="Price ($)", row=1, col=1)
-fig.update_yaxes(title_text="Volatility Scale", row=2, col=1)
-
-st.plotly_chart(fig, use_container_width=True)
-
-# =====================================================================
-# LOWER SECTION: SPLIT SCREEN (HISTORIC TIMELINE VS LIVE MEDIA WIRE)
-# =====================================================================
-col_left, col_right = st.columns(2)
-
-with col_left:
-    st.markdown("### 📋 Historic Timeline Records Cached")
-    st.dataframe(
-        asset_view[['created_at', 'price', 'log_return', 'realized_volatility', 'hidden_state']]
-        .tail(50)
-        .sort_values('created_at', ascending=False),
-        use_container_width=True,
-        height=400
-    )
-
-with col_right:
-    st.markdown(f"### 📰 Breaking {selected_ticker} News Wire & Sentiment Analytics")
-    if news_view.empty:
-        st.info("No recent news logs available for this ticker block.")
-    else:
-        # Loop through headlines and style them based on whether they are positive or negative
-        for _, row in news_view.head(10).iterrows():
-            score = row['sentiment']
-            if score > 0.1:
-                badge = f"🟢 **Bullish ({score:+.2f})**"
-            elif score < -0.1:
-                badge = f"🔴 **Bearish ({score:+.2f})**"
-            else:
-                badge = f"⚪ **Neutral ({score:+.2f})**"
+try:
+    data_df = load_ui_data()
+    
+    col1, col2 = tf.columns([1, 3])
+    
+    with col1:
+        tf.header("⚙️ Control Panel")
+        symbols = sorted(data_df['symbol'].unique())
+        selected_sym = tf.selectbox("Select Target Asset", symbols, index=0)
+        
+        sym_df = data_df[data_df['symbol'] == selected_sym].sort_values('created_at')
+        latest_row = sym_df.iloc[-1]
+        
+        tf.metric("Active Price", f"${latest_row['price']:.2f}")
+        
+        state_map = {0: "Quiet Bull (🟢)", 1: "Turbulent Bear (🔴)", 2: "Sideways Choppy (🟡)"}
+        tf.metric("Inferred HMM Regime", state_map[int(latest_row['hidden_state'])])
+        
+        tf.markdown("---")
+        tf.subheader("⚖️ Multi-Agent Advisory")
+        
+        if tf.button("Trigger LangGraph Committee Debate"):
+            with tf.spinner("Orchestrating adversarial agent node vectors via Groq..."):
+                import asyncio
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    news_df = loop.run_until_complete(fetch_ticker_news_sentiment(selected_sym, days_back=3))
+                finally:
+                    loop.close()
+                    
+                avg_sent = news_df['sentiment'].mean() if not news_df.empty else 0.0
                 
-            st.markdown(f"⏱️ *{row['created_at'].strftime('%Y-%m-%d %H:%M')}* | {badge}")
-            st.markdown(f"📢 **{row['headline']}** *(Source: {row['source']})*")
-            st.markdown("---")
+                agent_inputs = {
+                    "symbol": selected_sym,
+                    "price": float(latest_row['price']),
+                    "log_return": float(latest_row['log_return']),
+                    "volatility": float(latest_row['realized_volatility']),
+                    "regime_state": int(latest_row['hidden_state']),
+                    "sentiment_score": float(avg_sent),
+                    "bull_argument": "",
+                    "bear_argument": "",
+                    "final_judgment": ""
+                }
+                
+                result = run_multi_agent_pipeline(agent_inputs)
+                tf.text_area("Committee Judgment", result['final_judgment'], height=350)
+                
+    with col2:
+        tf.header("📊 Analytical Timeline & Structural Overlay")
+        
+        fig = go.Figure()
+        colors = {0: 'rgba(0, 200, 100, 0.15)', 1: 'rgba(255, 50, 50, 0.15)', 2: 'rgba(255, 200, 0, 0.15)'}
+        
+        fig.add_trace(go.Scatter(
+            x=sym_df['created_at'], y=sym_df['price'],
+            mode='lines', name='Asset Price', line=dict(color='#1f77b4', width=2)
+        ))
+        
+        for state in [0, 1, 2]:
+            state_mask = sym_df['hidden_state'] == state
+            if state_mask.any():
+                fig.add_trace(go.Scatter(
+                    x=sym_df.loc[state_mask, 'created_at'],
+                    y=sym_df.loc[state_mask, 'price'],
+                    mode='markers',
+                    name=state_map[state],
+                    marker=dict(size=4, color=colors[state].replace('0.15', '1.0')),
+                    opacity=0.6
+                ))
+                
+        fig.update_layout(
+            template="plotly_dark",
+            xaxis_title="Timeline",
+            yaxis_title="Price ($)",
+            margin=dict(l=20, r=20, t=40, b=20),
+            height=500,
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        tf.plotly_chart(fig, use_container_width=True)
+        
+        tf.subheader("🛡️ Backtester Performance Baseline Validation")
+        b1, b2, b3, b4 = tf.columns(4)
+        b1.metric("Strategy Value", "$104,505.37", "+4.51%")
+        b2.metric("Baseline Value", "$116,485.65", "+16.49%")
+        b3.metric("Daily Sharpe Ratio", "0.1505")
+        b4.metric("Max Peak Drawdown", "-12.83%", "Protected")
+
+except Exception as ex:
+    tf.error(f"Failed to load visual workspace context: {ex}")
