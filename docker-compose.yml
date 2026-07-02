@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: marketpulse_db_container
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: marketpulse_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  web:
+    build: .
+    container_name: marketpulse_web_app
+    ports:
+      - "8501:8501"
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - ALPACA_API_KEY=PKFRQFCJ42X4FL3WAXLEOD5TWL
+      - ALPACA_SECRET_KEY=AScC3Bvgh6xvdR93N3En5U6zBwVW7iAEer5jxfHMud6T
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+    restart: unless-stopped
+
+volumes:
+  pgdata:
