@@ -42,7 +42,7 @@ DB_NAME     = "marketpulse_db"
 
 # ─── Modelling Constants ──────────────────────────────────────────────────────
 
-N_STATES            = 2
+N_STATES            = 3
 VOL_WINDOW          = 20    # Rolling window for realized volatility
 KMEANS_INIT_RUNS    = 20    # KMeans restarts — more runs = more stable seeds
 HMM_ITERATIONS      = 200

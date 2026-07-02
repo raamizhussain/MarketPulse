@@ -53,10 +53,15 @@ try:
                 try:
                     news_df = fetch_ticker_news_sentiment_sync(selected_sym, days_back=3)
                 except Exception as ex:
-                    tf.error(f"Network data retrieval failed: {ex}")
-                    news_df = pd.DataFrame()
+                    tf.warning(f"News sentiment unavailable; continuing with neutral sentiment. Details: {ex}")
+                    news_df = pd.DataFrame(columns=["sentiment"])
                     
-                avg_sent = news_df['sentiment'].mean() if not news_df.empty else 0.0
+                if not news_df.empty and "sentiment" in news_df.columns:
+                    sentiment_values = pd.to_numeric(news_df["sentiment"], errors="coerce").dropna()
+                    avg_sent = float(sentiment_values.mean()) if not sentiment_values.empty else 0.0
+                else:
+                    avg_sent = 0.0
+                    tf.info("News sentiment unavailable; committee is using a neutral sentiment score.")
                 
                 agent_inputs = {
                     "symbol": selected_sym,
@@ -71,7 +76,7 @@ try:
                 }
                 
                 result = run_multi_agent_pipeline(agent_inputs)
-                tf.text_area("Committee Judgment", result['final_judgment'], height=350)
+                tf.text_area("Committee Judgment", result.get('final_judgment', 'Committee completed without a final judgment.'), height=350)
                 
     with col2:
         tf.header("📊 Analytical Timeline & Structural Overlay")
