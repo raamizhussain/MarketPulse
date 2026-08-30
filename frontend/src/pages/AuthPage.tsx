@@ -85,23 +85,37 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onBackToHome }) => {
   };
 
   const handleOtpDigitChange = (index: number, val: string) => {
-    if (val.length > 1) {
-      val = val.charAt(val.length - 1);
+    // If user pasted a 6-digit code into any box
+    if (val.length >= 6 && /^\d+$/.test(val.trim())) {
+      const digits = val.trim().slice(0, 6).split('');
+      setOtpCode(digits);
+      const lastInput = document.getElementById('otp-input-5');
+      if (lastInput) lastInput.focus();
+      return;
     }
+
+    const cleanChar = val.replace(/\D/g, '').slice(-1);
     const newArr = [...otpCode];
-    newArr[index] = val;
+    newArr[index] = cleanChar;
     setOtpCode(newArr);
 
-    // Auto-advance focus to next input box
-    if (val && index < 5) {
+    // Auto-advance focus to next input box if typed
+    if (cleanChar && index < 5) {
       const nextInput = document.getElementById(`otp-input-${index + 1}`);
       if (nextInput) nextInput.focus();
     }
   };
 
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !otpCode[index] && index > 0) {
+      const prevInput = document.getElementById(`otp-input-${index - 1}`);
+      if (prevInput) prevInput.focus();
+    }
+  };
+
   const handleAutoFillPreviewOTP = () => {
     if (otpPreview) {
-      const digits = otpPreview.split('');
+      const digits = otpPreview.trim().split('').slice(0, 6);
       setOtpCode(digits);
     }
   };
@@ -304,9 +318,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onBackToHome }) => {
                       key={idx}
                       id={`otp-input-${idx}`}
                       type="text"
-                      maxLength={1}
+                      inputMode="numeric"
+                      maxLength={6}
                       value={digit}
                       onChange={(e) => handleOtpDigitChange(idx, e.target.value)}
+                      onKeyDown={(e) => handleOtpKeyDown(idx, e)}
                       className="w-11 h-12 text-center text-lg font-mono font-bold bg-[#FFFBE9] border border-[#AD8B73]/40 rounded-xl focus:outline-none focus:border-[#AD8B73] focus:ring-2 focus:ring-[#AD8B73]/30 shadow-warm-sm text-[#3F2E22]"
                     />
                   ))}

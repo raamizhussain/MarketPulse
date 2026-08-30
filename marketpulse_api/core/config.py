@@ -56,12 +56,15 @@ class Settings(BaseSettings):
 
     @property
     def async_database_url(self) -> str:
-        """Ensures PostgreSQL URLs use the asyncpg async driver."""
+        """Ensures PostgreSQL URLs use the asyncpg async driver and SQLite is writable in serverless."""
         url = self.DATABASE_URL
         if url.startswith("postgres://"):
             url = url.replace("postgres://", "postgresql+asyncpg://", 1)
         elif url.startswith("postgresql://") and not url.startswith("postgresql+asyncpg://"):
             url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        elif "sqlite" in url:
+            if os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
+                url = "sqlite+aiosqlite:////tmp/marketpulse.db"
         return url
 
     class Config:

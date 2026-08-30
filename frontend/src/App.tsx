@@ -23,6 +23,13 @@ const MainLayout: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
   const [selectedTicker, setSelectedTicker] = useState<string>('NVDA');
   
+  // Auto-switch to terminal whenever a user authenticates or signs in
+  React.useEffect(() => {
+    if (user && viewMode === 'auth') {
+      setViewMode('terminal');
+    }
+  }, [user, viewMode]);
+
   // Modals state
   const [isTourOpen, setIsTourOpen] = useState<boolean>(false);
   const [isSubscriptionOpen, setIsSubscriptionOpen] = useState<boolean>(false);
