@@ -857,7 +857,9 @@ class ApiClient {
       h.market_value = Number((h.shares * ltp).toFixed(2));
       h.unrealized_pnl = Number((h.market_value - h.invested_value).toFixed(2));
       h.unrealized_pnl_pct = h.invested_value > 0 ? Number(((h.unrealized_pnl / h.invested_value) * 100).toFixed(2)) : 0;
-      h.day_change_pct = h.day_change_pct || 0.85;
+      
+      // When market is closed (weekend/holiday), Day's P&L is strictly 0.00 for orders executed at LTP
+      h.day_change_pct = h.day_change_pct || 0.0;
       h.day_pnl = Number((h.market_value * (h.day_change_pct / 100)).toFixed(2));
 
       if (isINR) {
@@ -935,17 +937,10 @@ class ApiClient {
       }
       if (!portfolio) {
         portfolio = {
-          portfolio_id: 'port_mock_001',
+          portfolio_id: 'port_clean_001',
           cash_usd: 100000.0,
           cash_inr: 8000000.0,
-          holdings: [
-            { id: 'h_1', symbol: 'NVDA', shares: 100, average_entry_price: 235.00, current_price: 242.50, currency: 'USD', product_type: 'CNC' },
-            { id: 'h_2', symbol: 'AAPL', shares: 100, average_entry_price: 230.00, current_price: 238.10, currency: 'USD', product_type: 'CNC' },
-            { id: 'h_3', symbol: 'MSFT', shares: 50, average_entry_price: 440.00, current_price: 448.20, currency: 'USD', product_type: 'CNC' },
-            { id: 'h_4', symbol: 'RELIANCE.NS', shares: 100, average_entry_price: 1260.00, current_price: 1285.50, currency: 'INR', product_type: 'CNC' },
-            { id: 'h_5', symbol: 'TCS.NS', shares: 50, average_entry_price: 3900.00, current_price: 3940.00, currency: 'INR', product_type: 'CNC' },
-            { id: 'h_6', symbol: 'HDFCBANK.NS', shares: 100, average_entry_price: 1620.00, current_price: 1642.00, currency: 'INR', product_type: 'CNC' }
-          ],
+          holdings: [],
           orders: []
         };
       }
@@ -957,7 +952,16 @@ class ApiClient {
 
   async resetPaperPortfolio(): Promise<any> {
     localStorage.removeItem('mp_paper_portfolio_data');
-    return this.getPaperPortfolio();
+    const fresh = {
+      portfolio_id: 'port_clean_001',
+      cash_usd: 100000.0,
+      cash_inr: 8000000.0,
+      holdings: [],
+      orders: []
+    };
+    this.recalculatePortfolio(fresh);
+    localStorage.setItem('mp_paper_portfolio_data', JSON.stringify(fresh));
+    return fresh;
   }
 
   async placePaperOrder(

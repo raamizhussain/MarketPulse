@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { InstitutionalPriceChart } from '../components/InstitutionalPriceChart';
+import { getExchangeMarketStatus } from '../utils/marketHours';
 import {
   Briefcase,
   TrendingUp,
@@ -178,6 +179,9 @@ export const PaperBrokeragePage: React.FC = () => {
     }
   };
 
+  // Market Hours & Status
+  const marketStatus = getExchangeMarketStatus(isIndian);
+
   // Financial Variables
   const relevantHoldings = (portfolio?.holdings || []).filter((h: any) =>
     isIndian ? (h.currency === 'INR' || h.symbol.includes('.NS') || h.symbol.includes('.BO'))
@@ -188,7 +192,9 @@ export const PaperBrokeragePage: React.FC = () => {
   const computedMarketVal = relevantHoldings.reduce((sum: number, h: any) => sum + ((h.shares || 0) * (h.current_price || h.average_entry_price || 0)), 0);
   const computedOverallPnl = computedMarketVal - computedInvested;
   const computedOverallPnlPct = computedInvested > 0 ? (computedOverallPnl / computedInvested) * 100 : 0;
-  const computedDayPnl = relevantHoldings.reduce((sum: number, h: any) => sum + (h.day_pnl || (((h.shares || 0) * (h.current_price || 0)) * ((h.day_change_pct || 0.85) / 100))), 0);
+  const computedDayPnl = marketStatus.isAMO
+    ? 0.0
+    : relevantHoldings.reduce((sum: number, h: any) => sum + (h.day_pnl || (((h.shares || 0) * (h.current_price || 0)) * ((h.day_change_pct || 0.85) / 100))), 0);
 
   const cashAvailable = isIndian ? (portfolio?.cash_inr ?? 8000000) : (portfolio?.cash_usd ?? 100000);
   const totalInvested = computedInvested;
@@ -234,12 +240,14 @@ export const PaperBrokeragePage: React.FC = () => {
           <div>
             <h1 className="font-serif text-xl font-bold text-[#3F2E22] flex items-center gap-2">
               <span>Angel One / Kite Paper Brokerage Terminal</span>
-              <span className="px-2 py-0.5 rounded bg-[#2D8A68]/15 text-[#2D8A68] text-[10px] font-mono font-bold">
-                REAL-TIME LIVE PRICES
+              <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                marketStatus.isOpen ? 'bg-[#2D8A68]/15 text-[#2D8A68]' : 'bg-[#A84236]/15 text-[#A84236]'
+              }`}>
+                {marketStatus.statusBadge}
               </span>
             </h1>
             <p className="text-xs text-[#8C705B] font-mono mt-0.5">
-              Live market orders, Level 2 depth ladder, delivery holdings, intraday leverage (5x) &amp; P&amp;L accounting
+              Live market execution, Level 2 depth ladder, delivery holdings, intraday leverage (5x) &amp; P&amp;L accounting
             </p>
           </div>
         </div>
@@ -309,6 +317,42 @@ export const PaperBrokeragePage: React.FC = () => {
           >
             <Wallet className="w-3.5 h-3.5" />
             <span>Funds &amp; Margin</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Live Exchange Status & AMO Telemetry Strip */}
+      <div className={`p-4 rounded-2xl border flex flex-wrap items-center justify-between gap-3 text-xs font-mono shadow-warm-sm ${
+        marketStatus.isOpen
+          ? 'bg-[#2D8A68]/10 border-[#2D8A68]/30 text-[#2D8A68]'
+          : 'bg-[#A84236]/10 border-[#A84236]/30 text-[#8C3A30]'
+      }`}>
+        <div className="flex items-center space-x-3">
+          <div className={`w-3 h-3 rounded-full ${marketStatus.isOpen ? 'bg-[#2D8A68] animate-ping' : 'bg-[#A84236]'}`} />
+          <div>
+            <div className="flex items-center space-x-2">
+              <strong className="text-sm font-serif">{marketStatus.statusBadge}</strong>
+              <span className="text-[10px] px-2 py-0.2 rounded bg-[#FFFBE9] border border-[#AD8B73]/25 font-mono text-[#5C4433]">
+                {marketStatus.statusLabel}
+              </span>
+            </div>
+            <p className="text-[11px] text-[#5C4433] font-sans mt-0.5">
+              {marketStatus.scheduleDescription}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-3 text-xs">
+          <div className="text-right">
+            <span className="text-[10px] text-[#8C705B] block">Exchange Clock</span>
+            <strong className="text-[#3F2E22]">{marketStatus.localTimeStr}</strong>
+          </div>
+          <button
+            onClick={handleReset}
+            className="px-3 py-1.5 rounded-xl bg-[#FFFBE9] border border-[#AD8B73]/30 text-[#5C4433] hover:bg-[#E3CAA5]/40 transition-colors font-bold text-[11px] flex items-center gap-1 shadow-warm-sm"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Reset Virtual Capital</span>
           </button>
         </div>
       </div>
@@ -671,7 +715,7 @@ export const PaperBrokeragePage: React.FC = () => {
                 className="btn-liquid flex-1 py-3 bg-[#2D8A68] hover:bg-[#246E53] text-[#FFFBE9] font-bold text-xs rounded-xl shadow-warm-md transition-all flex items-center justify-center space-x-1.5 disabled:opacity-50"
               >
                 <ArrowUpRight className="w-4 h-4" />
-                <span>BUY {sharesInput} {selectedStock.symbol}</span>
+                <span>BUY {marketStatus.isAMO ? 'AMO ' : ''}{sharesInput} {selectedStock.symbol}</span>
               </button>
 
               <button
@@ -681,7 +725,7 @@ export const PaperBrokeragePage: React.FC = () => {
                 className="btn-liquid flex-1 py-3 bg-[#A84236] hover:bg-[#8D372D] text-[#FFFBE9] font-bold text-xs rounded-xl shadow-warm-md transition-all flex items-center justify-center space-x-1.5 disabled:opacity-40"
               >
                 <ArrowDownRight className="w-4 h-4" />
-                <span>SELL {sharesInput} {selectedStock.symbol}</span>
+                <span>SELL {marketStatus.isAMO ? 'AMO ' : ''}{sharesInput} {selectedStock.symbol}</span>
               </button>
             </div>
 

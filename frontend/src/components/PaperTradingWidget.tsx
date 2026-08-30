@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { getExchangeMarketStatus } from '../utils/marketHours';
 import {
   DollarSign,
   TrendingUp,
@@ -147,6 +148,9 @@ export const PaperTradingWidget: React.FC<PaperTradingWidgetProps> = ({
   };
 
   // Financial Computations
+  // Market Hours & Status
+  const marketStatus = getExchangeMarketStatus(isIndian);
+
   // Financial Variables
   const relevantHoldings = (portfolio?.holdings || []).filter((h: any) =>
     isIndian ? (h.currency === 'INR' || h.symbol.includes('.NS') || h.symbol.includes('.BO'))
@@ -157,7 +161,9 @@ export const PaperTradingWidget: React.FC<PaperTradingWidgetProps> = ({
   const computedMarketVal = relevantHoldings.reduce((sum: number, h: any) => sum + ((h.shares || 0) * (h.current_price || h.average_entry_price || 0)), 0);
   const computedOverallPnl = computedMarketVal - computedInvested;
   const computedOverallPnlPct = computedInvested > 0 ? (computedOverallPnl / computedInvested) * 100 : 0;
-  const computedDayPnl = relevantHoldings.reduce((sum: number, h: any) => sum + (h.day_pnl || (((h.shares || 0) * (h.current_price || 0)) * ((h.day_change_pct || 0.85) / 100))), 0);
+  const computedDayPnl = marketStatus.isAMO
+    ? 0.0
+    : relevantHoldings.reduce((sum: number, h: any) => sum + (h.day_pnl || (((h.shares || 0) * (h.current_price || 0)) * ((h.day_change_pct || 0.85) / 100))), 0);
 
   const cashAvailable = isIndian ? (portfolio?.cash_inr ?? 8000000) : (portfolio?.cash_usd ?? 100000);
   const totalInvested = computedInvested;
