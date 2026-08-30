@@ -767,59 +767,136 @@ class ApiClient {
   }
 
   // --- Real-Time Paper Brokerage Desk ---
+  private recalculatePortfolio(portfolio: any, activeSymbol?: string) {
+    const stockPrices: Record<string, number> = {
+      'NVDA': 242.50,
+      'AAPL': 238.10,
+      'MSFT': 448.20,
+      'TSLA': 218.40,
+      'GOOGL': 182.30,
+      'AMZN': 198.50,
+      'META': 520.00,
+      'RELIANCE.NS': 1285.50,
+      'TCS.NS': 3940.00,
+      'HDFCBANK.NS': 1642.00,
+      'INFY.NS': 1880.00,
+      'TATAMOTORS.NS': 960.00,
+      'ICICIBANK.NS': 1245.00,
+      'ZOMATO.NS': 265.00
+    };
+
+    let totalInvestedUsd = 0;
+    let totalMarketValUsd = 0;
+    let totalDayPnlUsd = 0;
+
+    let totalInvestedInr = 0;
+    let totalMarketValInr = 0;
+    let totalDayPnlInr = 0;
+
+    for (const h of (portfolio.holdings || [])) {
+      const isINR = h.currency === 'INR' || h.symbol.includes('.NS') || h.symbol.includes('.BO');
+      const defaultLtp = isINR ? 1285.50 : 242.50;
+      const ltp = stockPrices[h.symbol] || h.current_price || defaultLtp;
+      h.current_price = ltp;
+      h.invested_value = Number((h.shares * h.average_entry_price).toFixed(2));
+      h.market_value = Number((h.shares * ltp).toFixed(2));
+      h.unrealized_pnl = Number((h.market_value - h.invested_value).toFixed(2));
+      h.unrealized_pnl_pct = h.invested_value > 0 ? Number(((h.unrealized_pnl / h.invested_value) * 100).toFixed(2)) : 0;
+      h.day_change_pct = h.day_change_pct || 0.85;
+      h.day_pnl = Number((h.market_value * (h.day_change_pct / 100)).toFixed(2));
+
+      if (isINR) {
+        totalInvestedInr += h.invested_value;
+        totalMarketValInr += h.market_value;
+        totalDayPnlInr += h.day_pnl;
+      } else {
+        totalInvestedUsd += h.invested_value;
+        totalMarketValUsd += h.market_value;
+        totalDayPnlUsd += h.day_pnl;
+      }
+    }
+
+    portfolio.total_invested_usd = Number(totalInvestedUsd.toFixed(2));
+    portfolio.total_market_val_usd = Number(totalMarketValUsd.toFixed(2));
+    portfolio.overall_pnl_usd = Number((totalMarketValUsd - totalInvestedUsd).toFixed(2));
+    portfolio.overall_pnl_pct_usd = totalInvestedUsd > 0 ? Number(((portfolio.overall_pnl_usd / totalInvestedUsd) * 100).toFixed(2)) : 0;
+    portfolio.day_pnl_usd = Number(totalDayPnlUsd.toFixed(2));
+    portfolio.total_equity_usd = Number(((portfolio.cash_usd || 100000) + totalMarketValUsd).toFixed(2));
+
+    portfolio.total_invested_inr = Number(totalInvestedInr.toFixed(2));
+    portfolio.total_market_val_inr = Number(totalMarketValInr.toFixed(2));
+    portfolio.overall_pnl_inr = Number((totalMarketValInr - totalInvestedInr).toFixed(2));
+    portfolio.overall_pnl_pct_inr = totalInvestedInr > 0 ? Number(((portfolio.overall_pnl_inr / totalInvestedInr) * 100).toFixed(2)) : 0;
+    portfolio.day_pnl_inr = Number(totalDayPnlInr.toFixed(2));
+    portfolio.total_equity_inr = Number(((portfolio.cash_inr || 8000000) + totalMarketValInr).toFixed(2));
+
+    portfolio.positions = [...(portfolio.holdings || [])];
+
+    const depthSym = activeSymbol || (portfolio.holdings?.[0]?.symbol || 'NVDA');
+    const depthPrice = stockPrices[depthSym] || (depthSym.includes('.NS') ? 1285.50 : 242.50);
+    portfolio.market_depth = {
+      symbol: depthSym,
+      ltp: depthPrice,
+      total_buy_qty: 48500,
+      total_sell_qty: 39200,
+      buy_pressure_pct: 55.3,
+      sell_pressure_pct: 44.7,
+      buy_ratio: 55.3,
+      sell_ratio: 44.7,
+      lower_circuit: Number((depthPrice * 0.90).toFixed(2)),
+      upper_circuit: Number((depthPrice * 1.10).toFixed(2)),
+      bids: [
+        { orders: 42, quantity: 12500, price: Number((depthPrice - 0.50).toFixed(2)) },
+        { orders: 38, quantity: 9800, price: Number((depthPrice - 1.00).toFixed(2)) },
+        { orders: 25, quantity: 8400, price: Number((depthPrice - 1.50).toFixed(2)) },
+        { orders: 19, quantity: 9200, price: Number((depthPrice - 2.00).toFixed(2)) },
+        { orders: 14, quantity: 8600, price: Number((depthPrice - 2.50).toFixed(2)) }
+      ],
+      asks: [
+        { orders: 35, quantity: 10200, price: Number((depthPrice + 0.50).toFixed(2)) },
+        { orders: 29, quantity: 7900, price: Number((depthPrice + 1.00).toFixed(2)) },
+        { orders: 22, quantity: 6800, price: Number((depthPrice + 1.50).toFixed(2)) },
+        { orders: 18, quantity: 7100, price: Number((depthPrice + 2.00).toFixed(2)) },
+        { orders: 12, quantity: 7200, price: Number((depthPrice + 2.50).toFixed(2)) }
+      ]
+    };
+
+    return portfolio;
+  }
+
   async getPaperPortfolio(symbol?: string): Promise<any> {
     try {
       const url = symbol ? `/trading/portfolio?symbol=${encodeURIComponent(symbol)}` : '/trading/portfolio';
       return await this.request<any>(url);
     } catch {
       const raw = localStorage.getItem('mp_paper_portfolio_data');
-      if (raw) return JSON.parse(raw);
-      const initial = {
-        portfolio_id: 'port_mock_001',
-        cash_usd: 100000.0,
-        cash_inr: 8000000.0,
-        total_invested_usd: 0.0,
-        total_market_val_usd: 0.0,
-        total_equity_usd: 100000.0,
-        overall_pnl_usd: 0.0,
-        overall_pnl_pct_usd: 0.0,
-        total_invested_inr: 0.0,
-        total_market_val_inr: 0.0,
-        total_equity_inr: 8000000.0,
-        overall_pnl_inr: 0.0,
-        overall_pnl_pct_inr: 0.0,
-        total_day_pnl_usd: 0.0,
-        total_day_pnl_inr: 0.0,
-        holdings: [],
-        positions: [],
-        orders: [],
-        market_depth: {
-          symbol: symbol || 'NVDA',
-          ltp: symbol?.includes('.NS') ? 1285.50 : 242.50,
-          total_buy_qty: 48500,
-          total_sell_qty: 39200,
-          buy_pressure_pct: 55.3,
-          sell_pressure_pct: 44.7,
-          lower_circuit: symbol?.includes('.NS') ? 1156.95 : 218.25,
-          upper_circuit: symbol?.includes('.NS') ? 1414.05 : 266.75,
-          bids: [
-            { orders: 42, quantity: 12500, price: symbol?.includes('.NS') ? 1285.00 : 242.45 },
-            { orders: 38, quantity: 9800, price: symbol?.includes('.NS') ? 1284.50 : 242.30 },
-            { orders: 25, quantity: 8400, price: symbol?.includes('.NS') ? 1284.00 : 242.15 },
-            { orders: 19, quantity: 9200, price: symbol?.includes('.NS') ? 1283.50 : 242.00 },
-            { orders: 14, quantity: 8600, price: symbol?.includes('.NS') ? 1283.00 : 241.85 }
-          ],
-          asks: [
-            { orders: 35, quantity: 10200, price: symbol?.includes('.NS') ? 1285.50 : 242.50 },
-            { orders: 29, quantity: 7900, price: symbol?.includes('.NS') ? 1286.00 : 242.65 },
-            { orders: 22, quantity: 6800, price: symbol?.includes('.NS') ? 1286.50 : 242.80 },
-            { orders: 18, quantity: 7100, price: symbol?.includes('.NS') ? 1287.00 : 242.95 },
-            { orders: 12, quantity: 7200, price: symbol?.includes('.NS') ? 1287.50 : 243.10 }
-          ]
+      let portfolio: any;
+      if (raw) {
+        try {
+          portfolio = JSON.parse(raw);
+        } catch {
+          portfolio = null;
         }
-      };
-      localStorage.setItem('mp_paper_portfolio_data', JSON.stringify(initial));
-      return initial;
+      }
+      if (!portfolio) {
+        portfolio = {
+          portfolio_id: 'port_mock_001',
+          cash_usd: 100000.0,
+          cash_inr: 8000000.0,
+          holdings: [
+            { id: 'h_1', symbol: 'NVDA', shares: 100, average_entry_price: 235.00, current_price: 242.50, currency: 'USD', product_type: 'CNC' },
+            { id: 'h_2', symbol: 'AAPL', shares: 100, average_entry_price: 230.00, current_price: 238.10, currency: 'USD', product_type: 'CNC' },
+            { id: 'h_3', symbol: 'MSFT', shares: 50, average_entry_price: 440.00, current_price: 448.20, currency: 'USD', product_type: 'CNC' },
+            { id: 'h_4', symbol: 'RELIANCE.NS', shares: 100, average_entry_price: 1260.00, current_price: 1285.50, currency: 'INR', product_type: 'CNC' },
+            { id: 'h_5', symbol: 'TCS.NS', shares: 50, average_entry_price: 3900.00, current_price: 3940.00, currency: 'INR', product_type: 'CNC' },
+            { id: 'h_6', symbol: 'HDFCBANK.NS', shares: 100, average_entry_price: 1620.00, current_price: 1642.00, currency: 'INR', product_type: 'CNC' }
+          ],
+          orders: []
+        };
+      }
+      this.recalculatePortfolio(portfolio, symbol);
+      localStorage.setItem('mp_paper_portfolio_data', JSON.stringify(portfolio));
+      return portfolio;
     }
   }
 
@@ -875,26 +952,51 @@ class ApiClient {
       });
     } catch {
       const portfolio = await this.getPaperPortfolio(payload.symbol);
-      const isINR = payload.symbol.includes('.NS');
-      const ltp = isINR ? 1285.50 : 242.50;
+      const isINR = payload.symbol.includes('.NS') || payload.symbol.includes('.BO');
+      
+      const stockPrices: Record<string, number> = {
+        'NVDA': 242.50,
+        'AAPL': 238.10,
+        'MSFT': 448.20,
+        'TSLA': 218.40,
+        'GOOGL': 182.30,
+        'AMZN': 198.50,
+        'META': 520.00,
+        'RELIANCE.NS': 1285.50,
+        'TCS.NS': 3940.00,
+        'HDFCBANK.NS': 1642.00,
+        'INFY.NS': 1880.00,
+        'TATAMOTORS.NS': 960.00,
+        'ICICIBANK.NS': 1245.00,
+        'ZOMATO.NS': 265.00
+      };
+
+      const defaultLtp = isINR ? 1285.50 : 242.50;
+      const ltp = stockPrices[payload.symbol] || defaultLtp;
       const orderPrice = payload.order_type === 'LIMIT' && payload.limit_price ? payload.limit_price : ltp;
-      const totalAmount = payload.shares * orderPrice;
+      const totalAmount = Number((payload.shares * orderPrice).toFixed(2));
       const orderId = `ORD-2026-${Math.floor(100000 + Math.random() * 900000)}`;
 
       if (payload.side === 'BUY') {
         const requiredMargin = payload.product_type === 'MIS' ? totalAmount / 5.0 : totalAmount;
         if (isINR) {
-          portfolio.cash_inr = Math.max(0, portfolio.cash_inr - requiredMargin);
+          portfolio.cash_inr = Math.max(0, Number(((portfolio.cash_inr || 8000000) - requiredMargin).toFixed(2)));
         } else {
-          portfolio.cash_usd = Math.max(0, portfolio.cash_usd - requiredMargin);
+          portfolio.cash_usd = Math.max(0, Number(((portfolio.cash_usd || 100000) - requiredMargin).toFixed(2)));
         }
 
-        const existingHolding = portfolio.holdings.find((h: any) => h.symbol === payload.symbol);
+        const existingHolding = (portfolio.holdings || []).find((h: any) => h.symbol === payload.symbol);
         if (existingHolding) {
           const totalShares = existingHolding.shares + payload.shares;
-          existingHolding.average_entry_price = Number(((existingHolding.shares * existingHolding.average_entry_price + totalAmount) / totalShares).toFixed(2));
+          existingHolding.average_entry_price = Number(
+            ((existingHolding.shares * existingHolding.average_entry_price + totalAmount) / totalShares).toFixed(2)
+          );
           existingHolding.shares = totalShares;
+          existingHolding.invested_value = Number((totalShares * existingHolding.average_entry_price).toFixed(2));
+          existingHolding.market_value = Number((totalShares * ltp).toFixed(2));
+          existingHolding.unrealized_pnl = Number((existingHolding.market_value - existingHolding.invested_value).toFixed(2));
         } else {
+          portfolio.holdings = portfolio.holdings || [];
           portfolio.holdings.push({
             id: `pos_${Date.now()}`,
             symbol: payload.symbol,
@@ -912,46 +1014,49 @@ class ApiClient {
           });
         }
       } else {
-        const idx = portfolio.holdings.findIndex((h: any) => h.symbol === payload.symbol);
+        const idx = (portfolio.holdings || []).findIndex((h: any) => h.symbol === payload.symbol);
         if (idx !== -1) {
           const holding = portfolio.holdings[idx];
           const soldQty = Math.min(holding.shares, payload.shares);
           const pnl = Number(((orderPrice - holding.average_entry_price) * soldQty).toFixed(2));
-          
+
           if (isINR) {
-            portfolio.cash_inr += (soldQty * orderPrice);
-            portfolio.overall_pnl_inr += pnl;
+            portfolio.cash_inr = Number(((portfolio.cash_inr || 8000000) + (soldQty * orderPrice)).toFixed(2));
+            portfolio.overall_pnl_inr = Number(((portfolio.overall_pnl_inr || 0) + pnl).toFixed(2));
           } else {
-            portfolio.cash_usd += (soldQty * orderPrice);
-            portfolio.overall_pnl_usd += pnl;
+            portfolio.cash_usd = Number(((portfolio.cash_usd || 100000) + (soldQty * orderPrice)).toFixed(2));
+            portfolio.overall_pnl_usd = Number(((portfolio.overall_pnl_usd || 0) + pnl).toFixed(2));
           }
 
           holding.shares -= soldQty;
           if (holding.shares <= 0) {
             portfolio.holdings.splice(idx, 1);
+          } else {
+            holding.invested_value = Number((holding.shares * holding.average_entry_price).toFixed(2));
+            holding.market_value = Number((holding.shares * ltp).toFixed(2));
+            holding.unrealized_pnl = Number((holding.market_value - holding.invested_value).toFixed(2));
           }
         }
       }
 
+      portfolio.orders = portfolio.orders || [];
       portfolio.orders.unshift({
+        id: `ord_${Date.now()}`,
         order_id: orderId,
         symbol: payload.symbol,
         side: payload.side,
         shares: payload.shares,
         execution_price: orderPrice,
+        total_value: totalAmount,
         product_type: payload.product_type || 'CNC',
         order_type: payload.order_type || 'MARKET',
         status: 'COMPLETE',
         created_at: new Date().toISOString()
       });
 
+      this.recalculatePortfolio(portfolio, payload.symbol);
       localStorage.setItem('mp_paper_portfolio_data', JSON.stringify(portfolio));
-      return {
-        status: 'success',
-        order_id: orderId,
-        message: `${payload.side} order for ${payload.shares} shares of ${payload.symbol} executed at ${isINR ? '₹' : '$'}${orderPrice}.`,
-        executed_price: orderPrice
-      };
+      return portfolio;
     }
   }
 
@@ -963,10 +1068,11 @@ class ApiClient {
       });
     } catch {
       const portfolio = await this.getPaperPortfolio();
-      portfolio.cash_usd += amountUsd;
-      portfolio.cash_inr += amountInr;
+      portfolio.cash_usd = (portfolio.cash_usd || 100000) + amountUsd;
+      portfolio.cash_inr = (portfolio.cash_inr || 8000000) + amountInr;
+      this.recalculatePortfolio(portfolio);
       localStorage.setItem('mp_paper_portfolio_data', JSON.stringify(portfolio));
-      return { status: 'success', cash_usd: portfolio.cash_usd, cash_inr: portfolio.cash_inr };
+      return portfolio;
     }
   }
 

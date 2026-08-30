@@ -178,12 +178,23 @@ export const PaperBrokeragePage: React.FC = () => {
   };
 
   // Financial Variables
-  const cashAvailable = isIndian ? (portfolio?.cash_inr || 8000000) : (portfolio?.cash_usd || 100000);
-  const totalInvested = isIndian ? (portfolio?.total_invested_inr || 0) : (portfolio?.total_invested_usd || 0);
-  const totalMarketVal = isIndian ? (portfolio?.total_market_val_inr || 0) : (portfolio?.total_market_val_usd || 0);
-  const overallPnl = isIndian ? (portfolio?.overall_pnl_inr || 0) : (portfolio?.overall_pnl_usd || 0);
-  const overallPnlPct = isIndian ? (portfolio?.overall_pnl_pct_inr || 0) : (portfolio?.overall_pnl_pct_usd || 0);
-  const dayPnl = isIndian ? (portfolio?.day_pnl_inr || 0) : (portfolio?.day_pnl_usd || 0);
+  const relevantHoldings = (portfolio?.holdings || []).filter((h: any) =>
+    isIndian ? (h.currency === 'INR' || h.symbol.includes('.NS') || h.symbol.includes('.BO'))
+             : (h.currency !== 'INR' && !h.symbol.includes('.NS') && !h.symbol.includes('.BO'))
+  );
+
+  const computedInvested = relevantHoldings.reduce((sum: number, h: any) => sum + ((h.shares || 0) * (h.average_entry_price || 0)), 0);
+  const computedMarketVal = relevantHoldings.reduce((sum: number, h: any) => sum + ((h.shares || 0) * (h.current_price || h.average_entry_price || 0)), 0);
+  const computedOverallPnl = computedMarketVal - computedInvested;
+  const computedOverallPnlPct = computedInvested > 0 ? (computedOverallPnl / computedInvested) * 100 : 0;
+  const computedDayPnl = relevantHoldings.reduce((sum: number, h: any) => sum + (h.day_pnl || (((h.shares || 0) * (h.current_price || 0)) * ((h.day_change_pct || 0.85) / 100))), 0);
+
+  const cashAvailable = isIndian ? (portfolio?.cash_inr ?? 8000000) : (portfolio?.cash_usd ?? 100000);
+  const totalInvested = computedInvested;
+  const totalMarketVal = computedMarketVal;
+  const overallPnl = computedOverallPnl;
+  const overallPnlPct = computedOverallPnlPct;
+  const dayPnl = computedDayPnl;
   const totalEquity = cashAvailable + totalMarketVal;
 
   const activePosition = portfolio?.positions?.find((p: any) => p.symbol === selectedStock.symbol);
