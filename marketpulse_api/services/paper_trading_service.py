@@ -369,13 +369,12 @@ async def execute_paper_order(
         }
 
     # Record Order
-    order_id = f"ORD-2026-{random.randint(100000, 999999)}"
-    order = PaperOrder(
+    order_record = PaperOrder(
         portfolio_id=portfolio.id,
-        order_id=order_id,
+        order_id=f"ORD-2026-{clean_sym[:3]}-{random.randint(1000, 9999)}",
         symbol=clean_sym,
         side=clean_side,
-        order_type=order_type,
+        order_type=clean_order_type,
         product_type=clean_product,
         shares=shares,
         execution_price=exec_price,
@@ -387,8 +386,16 @@ async def execute_paper_order(
         status="FILLED",
         created_at=datetime.now(timezone.utc)
     )
-    db.add(order)
+    db.add(order_record)
     portfolio.updated_at = datetime.now(timezone.utc)
+
+    # Async dispatch to real Alpaca Paper Trading API if US stock
+    if currency == "USD":
+        try:
+            from marketpulse_api.services.alpaca_service import execute_alpaca_order
+            asyncio.create_task(execute_alpaca_order(clean_sym, shares, clean_side))
+        except Exception as e:
+            logger.warning(f"Alpaca order dispatch note: {e}")
 
     await db.commit()
     res = await get_or_create_paper_portfolio(db, user_id, active_symbol=clean_sym)
