@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: marketpulse-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn marketpulse_api.main:app --host 0.0.0.0 --port $PORT --workers 4
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: ENVIRONMENT
+        value: production
+      - key: SECRET_KEY
+        value: marketpulse-production-super-secret-jwt-key-2026-institutional-secure
+      - key: GROQ_API_KEY
+        value: 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
+      - key: SUPABASE_URL
+        value: https://yqyzzbrzvbqtcspdlzou.supabase.co
+      - key: SUPABASE_ANON_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlxeXp6YnJ6dmJxdGNzcGRsem91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwNzM5NTIsImV4cCI6MjEwMzY0OTk1Mn0.Aj2vCINJh-ZbmLeh6NOSLOIAC95CJhsGqP3JQDQkFDg
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlxeXp6YnJ6dmJxdGNzcGRsem91Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODA3Mzk1MiwiZXhwIjoyMTAzNjQ5OTUyfQ.ZWzXtRgj5VYHflC5bYg596-sAPKIu1Z_YAzpoJWOO74
+      - key: DATABASE_URL
+        sync: false
