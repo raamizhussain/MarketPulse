@@ -72,16 +72,6 @@ MarketPulse AI transforms qualitative financial intelligence into high-convictio
 
 ---
 
-## 🔐 Default Test Accounts
-
-| Role | Email | Password | Tier |
-| :--- | :--- | :--- | :--- |
-| 🏛️ **Enterprise Quant** | `enterprise@marketpulse.ai` | `Password@123` | `enterprise` |
-| 📈 **Pro Trader** | `trader@marketpulse.ai` | `Password@123` | `pro` |
-| 🛡️ **Staff Admin** | `admin@marketpulse.ai` | `AdminPassword@123` | `staff` |
-
----
-
 ## 🛠️ Quickstart
 
 ### Local Development (FastAPI + React)
@@ -91,6 +81,7 @@ MarketPulse AI transforms qualitative financial intelligence into high-convictio
    python -m venv venv
    source venv/bin/activate  # Or .\venv\Scripts\activate on Windows
    pip install -r requirements.txt
+   cp .env.example .env      # Configure your environment secrets
    uvicorn marketpulse_api.main:app --host 127.0.0.1 --port 8000 --reload
    ```
 
@@ -109,15 +100,15 @@ MarketPulse AI transforms qualitative financial intelligence into high-convictio
 
 ### 1. Database: Supabase (Cloud PostgreSQL)
 - Create a free project at **[supabase.com](https://supabase.com)**.
-- Copy your connection string: `postgresql://postgres.[REF]:[PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres`
+- Copy your connection string: `postgresql://postgres.[REF]:[YOUR_PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres`
 
 ### 2. Backend: Render / Railway
 - Connect this GitHub repo (`raamizhussain/MarketPulse`).
 - Environment variables:
   ```env
-  DATABASE_URL=postgresql+asyncpg://postgres.[REF]:[PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
-  SECRET_KEY=your-64-character-jwt-secret
-  GROQ_API_KEY=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
+  DATABASE_URL=postgresql+asyncpg://postgres.[REF]:[YOUR_PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+  SECRET_KEY=your-secure-random-64-char-jwt-secret-key
+  GROQ_API_KEY=your_groq_api_key_here
   ENVIRONMENT=production
   ```
 

@@ -26,10 +26,7 @@ class Settings(BaseSettings):
     )
 
     # API Keys & LLM Inference
-    GROQ_API_KEY: str = os.getenv(
-        "GROQ_API_KEY",
-        "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"
-    )
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
     ALPACA_API_KEY: str = os.getenv("ALPACA_API_KEY", "")
     ALPACA_SECRET_KEY: str = os.getenv("ALPACA_SECRET_KEY", "")
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")

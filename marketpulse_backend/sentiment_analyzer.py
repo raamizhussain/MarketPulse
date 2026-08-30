@@ -11,8 +11,8 @@ from alpaca.data.requests import NewsRequest
 from groq import Groq
 
 
-ALPACA_API_KEY = os.getenv("ALPACA_API_KEY", "PKFRQFCJ42X4FL3WAXLEOD5TWL")
-ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY", "AScC3Bvgh6xvdR93N3En5U6zBwVW7iAEer5jxfHMud6T")
+ALPACA_API_KEY = os.getenv("ALPACA_API_KEY", "")
+ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY", "")
 
 NEWS_COLUMNS = ["created_at", "headline", "sentiment", "source"]
 NEWS_FETCH_TIMEOUT_SECONDS = float(os.getenv("MARKETPULSE_NEWS_TIMEOUT_SECONDS", "5"))

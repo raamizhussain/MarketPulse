@@ -34,10 +34,10 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/marketpulse_db
-      - GROQ_API_KEY=${GROQ_API_KEY:-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}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-marketpulse_db}
+      - GROQ_API_KEY=${GROQ_API_KEY}
       - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=${SECRET_KEY:-marketpulse-super-secret-jwt-key-production-2026-institutional}
+      - SECRET_KEY=${SECRET_KEY}
       - ENVIRONMENT=production
     depends_on:
       db:

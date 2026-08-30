@@ -6,16 +6,18 @@ from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
 from alpaca.data.historical import StockHistoricalDataClient
 
-# Database Credentials
-DB_USER = "postgres"
-DB_PASSWORD = "password"
-DB_HOST = "127.0.0.1"
-DB_PORT = "5433"
-DB_NAME = "marketpulse_db"
+import os
 
-# 🔑 Alpaca API Keys Provided
-ALPACA_API_KEY = "PKFRQFCJ42X4FL3WAXLEOD5TWL"
-ALPACA_SECRET_KEY = "AScC3Bvgh6xvdR93N3En5U6zBwVW7iAEer5jxfHMud6T"
+# Database Credentials
+DB_USER = os.getenv("POSTGRES_USER", "postgres")
+DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "password")
+DB_HOST = os.getenv("POSTGRES_HOST", "127.0.0.1")
+DB_PORT = os.getenv("POSTGRES_PORT", "5432")
+DB_NAME = os.getenv("POSTGRES_DB", "marketpulse_db")
+
+# Alpaca API Keys
+ALPACA_API_KEY = os.getenv("ALPACA_API_KEY", "")
+ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY", "")
 
 class PriceTick(BaseModel):
     symbol: str
