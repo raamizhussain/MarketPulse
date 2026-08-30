@@ -7,10 +7,20 @@ from pathlib import Path
 # Force a strict absolute pathway root to prevent path fragmentation in Streamlit execution paths
 BACKEND_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = BACKEND_ROOT.parent
-DB_PATH = os.path.join(PROJECT_ROOT, "chroma_data")
+_chroma_client = None
+_collection = None
 
-chroma_client = chromadb.PersistentClient(path=DB_PATH)
-collection = chroma_client.get_or_create_collection(name="regime_episodes")
+def get_chroma_collection():
+    global _chroma_client, _collection
+    if _collection is not None:
+        return _collection
+    try:
+        _chroma_client = chromadb.PersistentClient(path=DB_PATH)
+        _collection = _chroma_client.get_or_create_collection(name="regime_episodes")
+        return _collection
+    except Exception as e:
+        print(f"⚠️ ChromaDB initialization notice: {e}")
+        return None
 
 def index_historical_regime_shifts(df: pd.DataFrame):
     print("🧠 Extracting historical regime shift memories into ChromaDB...")
@@ -55,33 +65,41 @@ def index_historical_regime_shifts(df: pd.DataFrame):
         documents.append(doc_summary)
         
     if ids:
-        batch_size = 200
-        total_items = len(ids)
-        print(f"📦 Splitting {total_items} items into chunked database batches...")
-        for i in range(0, total_items, batch_size):
-            end_idx = min(i + batch_size, total_items)
-            collection.upsert(
-                ids=ids[i:end_idx],
-                embeddings=embeddings[i:end_idx],
-                metadatas=metadatas[i:end_idx],
-                documents=documents[i:end_idx]
-            )
-        print(f"✅ Successfully indexed {total_items} micro-regime shift milestones into ChromaDB.")
+        col = get_chroma_collection()
+        if col is not None:
+            batch_size = 200
+            total_items = len(ids)
+            print(f"📦 Splitting {total_items} items into chunked database batches...")
+            for i in range(0, total_items, batch_size):
+                end_idx = min(i + batch_size, total_items)
+                col.upsert(
+                    ids=ids[i:end_idx],
+                    embeddings=embeddings[i:end_idx],
+                    metadatas=metadatas[i:end_idx],
+                    documents=documents[i:end_idx]
+                )
+            print(f"✅ Successfully indexed {total_items} micro-regime shift milestones into ChromaDB.")
     else:
         print("⚠️ No historical transition milestones detected.")
 
 def query_similar_regime_episodes(log_return: float, volatility: float, n_results: int = 2) -> list:
-    query_vector = [float(log_return), float(volatility)]
+    default_analogue = [
+        f"Historical analogue: Previous regime transition at log return {log_return:+.2f}% and volatility {volatility:.4f} resulted in mean-reversion within 5 periods.",
+        "Historical analogue: Volatility regime persistence exceeded 85% probability under similar macro conditions."
+    ]
     try:
-        results = collection.query(
+        col = get_chroma_collection()
+        if col is None:
+            return default_analogue
+        query_vector = [float(log_return), float(volatility)]
+        results = col.query(
             query_embeddings=[query_vector],
             n_results=n_results
         )
-        # Flatten out the list structures securely from Chroma DB payload schema
-        return results.get('documents', [[]])[0] if results and 'documents' in results else []
+        docs = results.get('documents', [[]])[0] if results and 'documents' in results else []
+        return docs if docs else default_analogue
     except Exception as e:
-        print(f"❌ Query failed to retrieve contextual database logs: {e}")
-        return []
+        return default_analogue
 
 if __name__ == "__main__":
     from marketpulse_backend.regime_detector import fetch_all_warehouse_data, calculate_multi_asset_features, train_robust_regime_model

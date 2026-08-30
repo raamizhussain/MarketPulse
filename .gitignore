@@ -1,3 +1,39 @@
-venv/ 
-__pycache__/ 
-*.env 
+# Virtual Environments
+venv/
+env/
+.venv/
+
+# Python Cache & Artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Environment Variables & Secrets
+.env
+*.env
+.streamlit/secrets.toml
+
+# Database Files
+*.db
+*.sqlite
+*.sqlite3
+marketpulse.db
+marketpulse.db*
+chroma_data/
+
+# Backups Archive
+backups/*.gz
+
+# Node / React Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+dist/
+node_modules/
+
+# OS / Editor Files
+.DS_Store
+Thumbs.db
+*.log

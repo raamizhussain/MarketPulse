@@ -1,0 +1,31 @@
+venv) G:\PROJECTS\Data Science\MarketPulse>streamlit run app.py
+
+  You can now view your Streamlit app in your browser.
+
+  Local URL: http://localhost:8501
+  Network URL: http://192.168.1.35:8501
+
+📥 Pulling unified historical timeline from database...
+   ✅ Fetched 390,838 rows across 4 symbols.
+
+⚙️  Engineering features (log return + 20-period realized vol)...
+   ✅ Feature matrix shape: (390758, 6) after dropping NaN burn-in rows.
+
+🧠 Building 2D feature matrix (log_return × realized_volatility)...
+   Feature matrix: 390,758 observations × 2 features
+   Scaled means  : [-0. -0.]
+   Scaled stds   : [1. 1.]
+
+🔬 Running KMeans(k=3, n_init=20) to find stable seed centroids...
+   KMeans start probs : [0.8402 0.0418 0.118 ]
+   KMeans cluster 0   : N=328,313  mean=[-0.1014 -0.2675]  cov=[0.2563 0.1581]
+   KMeans cluster 1   : N=16,352  mean=[-1.6388  2.8723]  cov=[5.4309 6.2633]
+   KMeans cluster 2   : N=46,093  mean=[1.3033 0.8866]  cov=[2.0006 0.9073]
+
+🏋️  Running EM (max 200 iterations, tol=0.05)...
+   ✅ EM converged without warnings.
+   ✅ EM output non-degenerate: min state fraction = 16.87%
+
+   ✅ EM regime split accepted.
+
+

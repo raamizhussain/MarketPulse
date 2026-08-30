@@ -1,0 +1,28 @@
+FROM python:3.11-slim as builder
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY marketpulse_backend/requirements.txt requirements.txt
+RUN pip install --no-cache-dir --user -r requirements.txt
+RUN pip install --no-cache-dir --user fastapi uvicorn pydantic-settings sqlalchemy aiosqlite passlib bcrypt python-multipart pyjwt email-validator redis
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY --from=builder /root/.local /root/.local
+ENV PATH=/root/.local/bin:$PATH
+ENV PYTHONUNBUFFERED=1
+
+COPY marketpulse_backend /app/marketpulse_backend
+COPY marketpulse_api /app/marketpulse_api
+COPY .env* /app/
+
+EXPOSE 8000
+
+CMD ["uvicorn", "marketpulse_api.main:app", "--host", "0.0.0.0", "--port", "8000"]

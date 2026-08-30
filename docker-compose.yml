@@ -3,30 +3,58 @@ version: '3.8'
 services:
   db:
     image: postgres:15-alpine
-    container_name: marketpulse_db_container
+    container_name: marketpulse_db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
       POSTGRES_DB: marketpulse_db
     ports:
-      - "5433:5432"
+      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-  web:
-    build: .
-    container_name: marketpulse_web_app
+  redis:
+    image: redis:7-alpine
+    container_name: marketpulse_redis
     ports:
-      - "8501:8501"
+      - "6379:6379"
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: marketpulse_api_backend
+    ports:
+      - "8000:8000"
     environment:
-      - GROQ_API_KEY=${GROQ_API_KEY}
-      - ALPACA_API_KEY=PKFRQFCJ42X4FL3WAXLEOD5TWL
-      - ALPACA_SECRET_KEY=AScC3Bvgh6xvdR93N3En5U6zBwVW7iAEer5jxfHMud6T
-    volumes:
-      - .:/app
+      - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/marketpulse_db
+      - GROQ_API_KEY=${GROQ_API_KEY:-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}
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-marketpulse-super-secret-jwt-key-production-2026-institutional}
+      - ENVIRONMENT=production
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: marketpulse_react_frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
     restart: unless-stopped
 
 volumes:
