@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CurrentRegime, SentimentData, PricePoint, AgentRecommendation, TickerSummary } from '../types';
 import { api } from '../services/api';
 import { realtime } from '../services/websocket';
+import { InstitutionalPriceChart } from '../components/InstitutionalPriceChart';
 import {
   TrendingUp,
   TrendingDown,
@@ -104,80 +105,21 @@ export const DashboardPage: React.FC<DashboardProps> = ({ selectedTicker, onSele
   const regColor = getRegimeTheme(regime?.regime_state);
 
   const renderChart = () => {
-    if (!priceHistory.length) {
-      return (
-        <div className="h-64 flex items-center justify-center text-xs font-mono text-[#8C705B]">
-          Ingesting price history for {selectedTicker}...
-        </div>
-      );
-    }
-
-    const prices = priceHistory.map((p) => p.close);
-    const minP = Math.min(...prices) * 0.98;
-    const maxP = Math.max(...prices) * 1.02;
-    const rangeP = maxP - minP || 1;
-
-    const width = 800;
-    const height = 240;
-    const padding = 20;
-
-    const points = priceHistory.map((p, i) => {
-      const x = padding + (i / (priceHistory.length - 1)) * (width - 2 * padding);
-      const y = height - padding - ((p.close - minP) / rangeP) * (height - 2 * padding);
-      return { x, y, price: p.close, date: p.timestamp, state: p.regime_state };
-    });
-
-    const pathD = points.reduce((acc, pt, idx) => (idx === 0 ? `M ${pt.x},${pt.y}` : `${acc} L ${pt.x},${pt.y}`), '');
-    const areaD = `${pathD} L ${points[points.length - 1].x},${height - padding} L ${points[0].x},${height - padding} Z`;
-
+    const tf = period === '1d' ? '1D' : (period === '7d' ? '1W' : (period === '1y' ? '1Y' : '1M'));
     return (
-      <div className="relative w-full overflow-hidden">
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-64 overflow-visible">
-          <defs>
-            <linearGradient id="priceGradientUmber" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#AD8B73" stopOpacity="0.25" />
-              <stop offset="100%" stopColor="#AD8B73" stopOpacity="0.0" />
-            </linearGradient>
-          </defs>
-
-          {/* Grid lines */}
-          <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="#AD8B73" strokeOpacity="0.15" strokeDasharray="3,3" />
-          <line x1={padding} y1={height / 2} x2={width - padding} y2={height / 2} stroke="#AD8B73" strokeOpacity="0.15" strokeDasharray="3,3" />
-          <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#AD8B73" strokeOpacity="0.2" />
-
-          {/* Area fill */}
-          <path d={areaD} fill="url(#priceGradientUmber)" />
-
-          {/* Price line */}
-          <path d={pathD} fill="none" stroke="#AD8B73" strokeWidth="2.25" strokeLinecap="round" />
-
-          {/* Regime Markers on Line */}
-          {points.filter((_, idx) => idx % 6 === 0).map((pt, idx) => {
-            const color = pt.state === 0 ? '#2D8A68' : pt.state === 1 ? '#A84236' : '#B8860B';
-            return (
-              <circle
-                key={idx}
-                cx={pt.x}
-                cy={pt.y}
-                r="3.5"
-                fill={color}
-                stroke="#FFFBE9"
-                strokeWidth="1.5"
-              />
-            );
-          })}
-        </svg>
-
-        {/* Dynamic Scale Overlay */}
-        <div className="flex justify-between text-[11px] font-mono text-[#8C705B] px-4 mt-2">
-          <span>Min: {currencySymbol}{minP.toFixed(2)}</span>
-          <span className="flex items-center gap-3">
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#2D8A68]"></span> Quiet Bull</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#A84236]"></span> Turbulent Bear</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#B8860B]"></span> Sideways</span>
-          </span>
-          <span>Max: {currencySymbol}{maxP.toFixed(2)}</span>
-        </div>
+      <div className="w-full">
+        <InstitutionalPriceChart
+          symbol={selectedTicker}
+          currencySymbol={currencySymbol}
+          data={priceHistory}
+          currentPrice={regime?.price}
+          timeframe={tf}
+          onTimeframeChange={(newTf) => {
+            const nextPeriod = newTf === '1D' ? '1d' : (newTf === '1W' ? '7d' : (newTf === '1Y' ? '1y' : '30d'));
+            setPeriod(nextPeriod);
+          }}
+          height={260}
+        />
       </div>
     );
   };

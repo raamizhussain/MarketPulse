@@ -488,24 +488,79 @@ class ApiClient {
     try {
       return await this.request<{ count: number; data: PricePoint[] }>(`/market/price-history?symbol=${symbol}&period=${period}`);
     } catch {
-      const basePrice = symbol.includes('.NS') ? 1280.0 : 240.0;
+      const stockPrices: Record<string, number> = {
+        'NVDA': 242.50,
+        'AAPL': 238.10,
+        'MSFT': 448.20,
+        'TSLA': 218.40,
+        'GOOGL': 182.30,
+        'AMZN': 198.50,
+        'META': 520.00,
+        'RELIANCE.NS': 1285.50,
+        'TCS.NS': 3940.00,
+        'HDFCBANK.NS': 1642.00,
+        'INFY.NS': 1880.00,
+        'TATAMOTORS.NS': 960.00,
+        'ICICIBANK.NS': 1245.00,
+        'ZOMATO.NS': 265.00
+      };
+
+      const isINR = symbol.includes('.NS') || symbol.includes('.BO');
+      const basePrice = stockPrices[symbol] || (isINR ? 1280.0 : 240.0);
       const points: PricePoint[] = [];
       const now = Date.now();
-      for (let i = 30; i >= 0; i--) {
-        const time = new Date(now - i * 86400000).toISOString().split('T')[0];
-        const variance = (Math.sin(i * 0.4) * 0.05) + ((30 - i) * 0.004);
-        const p = Number((basePrice * (1 + variance)).toFixed(2));
+
+      let numPoints = 30;
+      let stepMs = 86400000; // 1 day
+      let isIntraday = false;
+
+      if (period === '1d' || period === '1D') {
+        numPoints = 28;
+        stepMs = 15 * 60 * 1000; // 15-min bars
+        isIntraday = true;
+      } else if (period === '7d' || period === '1w' || period === '1W') {
+        numPoints = 7;
+        stepMs = 86400000;
+      } else if (period === '1y' || period === '1Y') {
+        numPoints = 52;
+        stepMs = 7 * 86400000; // 1 week
+      } else {
+        numPoints = 30;
+        stepMs = 86400000;
+      }
+
+      let currentPrice = basePrice * (1.0 - (numPoints * 0.0015));
+
+      for (let i = numPoints; i >= 0; i--) {
+        const timeObj = new Date(now - i * stepMs);
+        const timeStr = isIntraday
+          ? timeObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          : timeObj.toISOString().split('T')[0];
+
+        const shock = (Math.sin(i * 0.5) * 0.008) + ((Math.random() - 0.48) * 0.012);
+        currentPrice = Math.max(basePrice * 0.5, currentPrice * (1 + shock));
+        
+        const openP = Number((currentPrice * (1 + (Math.random() - 0.5) * 0.004)).toFixed(2));
+        const closeP = Number(currentPrice.toFixed(2));
+        const highP = Number((Math.max(openP, closeP) * (1 + Math.random() * 0.006)).toFixed(2));
+        const lowP = Number((Math.min(openP, closeP) * (1 - Math.random() * 0.006)).toFixed(2));
+        const vol = Math.floor((isIntraday ? 150000 : 5000000) * (0.8 + Math.random() * 0.6));
+
+        const regimeState = shock > 0.003 ? 0 : (shock < -0.003 ? 1 : 2);
+        const regimeLabel = regimeState === 0 ? 'Quiet Bull' : (regimeState === 1 ? 'Turbulent Bear' : 'Sideways Choppy');
+
         points.push({
-          timestamp: time,
-          open: Number((p * 0.995).toFixed(2)),
-          high: Number((p * 1.01).toFixed(2)),
-          low: Number((p * 0.99).toFixed(2)),
-          close: p,
-          volume: Math.floor(20000000 + Math.random() * 10000000),
-          regime_state: variance > 0.02 ? 0 : (variance < -0.02 ? 1 : 2),
-          regime_label: variance > 0.02 ? 'Quiet Bull' : (variance < -0.02 ? 'Turbulent Bear' : 'Sideways Choppy')
+          timestamp: timeStr,
+          open: openP,
+          high: highP,
+          low: lowP,
+          close: closeP,
+          volume: vol,
+          regime_state: regimeState,
+          regime_label: regimeLabel
         });
       }
+
       return { count: points.length, data: points };
     }
   }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { InstitutionalPriceChart } from '../components/InstitutionalPriceChart';
 import {
   Briefcase,
   TrendingUp,
@@ -488,62 +489,17 @@ export const PaperBrokeragePage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Timeframe Bar */}
-              <div className="flex items-center justify-between pt-2">
-                <span className="text-[10px] uppercase font-mono text-[#8C705B] font-bold">Price Action Chart</span>
-                <div className="flex items-center space-x-1 font-mono text-xs">
-                  {(['1D', '1W', '1M', '1Y'] as const).map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => setChartRange(r)}
-                      className={`px-2.5 py-0.5 rounded-lg transition-all ${
-                        chartRange === r
-                          ? 'bg-[#AD8B73] text-[#FFFBE9] font-bold shadow-warm-sm'
-                          : 'bg-[#FFFBE9] text-[#5C4433] hover:bg-[#E3CAA5]/40 border border-[#AD8B73]/20'
-                      }`}
-                    >
-                      {r}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* SVG Live Candlestick & Area Chart */}
-              <div className="mt-3 bg-[#FFFBE9] rounded-xl p-4 border border-[#AD8B73]/20 shadow-warm-sm h-64 flex items-center justify-center">
-                {priceHistory.length > 5 ? (
-                  <svg className="w-full h-full" viewBox="0 0 500 200">
-                    <defs>
-                      <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#2D8A68" stopOpacity="0.25" />
-                        <stop offset="100%" stopColor="#2D8A68" stopOpacity="0.0" />
-                      </linearGradient>
-                    </defs>
-                    {/* Render Area & Line */}
-                    {(() => {
-                      const minPrice = Math.min(...priceHistory.map((p) => p.close));
-                      const maxPrice = Math.max(...priceHistory.map((p) => p.close));
-                      const range = maxPrice - minPrice || 1;
-                      const pts = priceHistory.map((p, idx) => {
-                        const x = (idx / (priceHistory.length - 1)) * 480 + 10;
-                        const y = 180 - ((p.close - minPrice) / range) * 150;
-                        return `${x},${y}`;
-                      }).join(' ');
-                      const areaPts = `10,190 ${pts} 490,190`;
-                      return (
-                        <>
-                          <polygon points={areaPts} fill="url(#chartGrad)" />
-                          <polyline points={pts} fill="none" stroke="#2D8A68" strokeWidth="2.5" strokeLinecap="round" />
-                        </>
-                      );
-                    })()}
-                  </svg>
-                ) : (
-                  <div className="text-center font-mono text-xs text-[#8C705B] space-y-1">
-                    <BarChart2 className="w-6 h-6 mx-auto text-[#AD8B73] animate-pulse" />
-                    <span>Streaming high-frequency ticks for {selectedStock.symbol}...</span>
-                  </div>
-                )}
+              {/* Institutional Interactive Price & Regime Chart */}
+              <div className="mt-3">
+                <InstitutionalPriceChart
+                  symbol={selectedStock.symbol}
+                  currencySymbol={currSym}
+                  data={priceHistory}
+                  currentPrice={selectedStock.price}
+                  timeframe={chartRange}
+                  onTimeframeChange={(tf) => setChartRange(tf)}
+                  height={250}
+                />
               </div>
             </div>
 
